@@ -15,6 +15,10 @@ const int Pin2 = 25;
 const int Pin3 = 26;
 const int Pin4 = 27;
 
+// Number of LEDs in each strip
+const int numLeds = 5;
+const int numStrips = 4;
+
 int colorIndex;
 CRGB Color;
 
@@ -22,29 +26,13 @@ Preferences pref;
 
 StaticJsonDocument<250> jsonDocument;
 
-// Color matrix
-DEFINE_GRADIENT_PALETTE(heatmap_gp){
-  0, 0, 0, 0,        //black
-  50, 153, 0, 0,     //green
-  100, 153, 153, 0,  //bright yellow
-  150, 0, 153, 0     //red
-};
+CRGB leds[numStrips][numLeds];
 
-CRGBPalette16 myPal = heatmap_gp;
-
-// Number of LEDs in each strip
-const int numLeds = 5;
-
-CRGB leds1[numLeds];
-CRGB leds2[numLeds];
-CRGB leds3[numLeds];
-CRGB leds4[numLeds];
-
-// Current and maximum HP values for each player
+// Current and maximum HP values
 int c1, m1, c2, m2, c3, m3, c4, m4;
-
+// Player Names
 String p1, p2, p3, p4;
-
+// Brightness
 int b;
 
 WebServer server(80);  // create a server on port 80
@@ -52,8 +40,8 @@ WebServer server(80);  // create a server on port 80
 void setup() {
   Serial.begin(115200);
 
+  //Value Safe
   pref.begin("ValueSafe", false);
-
   c1 = pref.getInt("c1", 0);
   m1 = pref.getInt("m1", 0);
   c2 = pref.getInt("c2", 0);
@@ -62,22 +50,19 @@ void setup() {
   m3 = pref.getInt("m3", 0);
   c4 = pref.getInt("c4", 0);
   m4 = pref.getInt("m4", 0);
-
   p1 = pref.getString("p1", "Player 1");
   p2 = pref.getString("p2", "Player 2");
   p3 = pref.getString("p3", "Player 3");
   p4 = pref.getString("p4", "Player 4");
-
   b  = pref.getInt("b", 150);
 
   // Initialize the LED strip
-  FastLED.addLeds<WS2812B, Pin1>(leds1, numLeds);
-  FastLED.addLeds<WS2812B, Pin2>(leds2, numLeds);
-  FastLED.addLeds<WS2812B, Pin3>(leds3, numLeds);
-  FastLED.addLeds<WS2812B, Pin4>(leds4, numLeds);
+  FastLED.addLeds<WS2812B, Pin1>(leds[0], numLeds);
+  FastLED.addLeds<WS2812B, Pin2>(leds[1], numLeds);
+  FastLED.addLeds<WS2812B, Pin3>(leds[2], numLeds);
+  FastLED.addLeds<WS2812B, Pin4>(leds[3], numLeds);
 
-  CRGB correction = CRGB(255, 255, 255);  // Example correction values
-
+  CRGB correction = CRGB(255, 255, 255);
   FastLED.setCorrection(correction);
 
   // Connect to WiFi
@@ -93,11 +78,11 @@ void setup() {
   Serial.println(WiFi.localIP());
 
   // Start the server
-  server.on("/", HTTP_GET, handleGet);    // register a request handling function for GET requests
-  server.on("/", HTTP_POST, handlePost);  // register a request handling function for POST requests
-  server.on("/Foundry", HTTP_POST, handlePostFoundry);
-  server.on("/Foundry", HTTP_OPTIONS, handlePreflight);
-  server.enableCORS(true);
+  server.on("/", HTTP_GET, handleGet);    // Browser GET
+  server.on("/", HTTP_POST, handlePost);  // Browser POST
+  server.on("/Foundry", HTTP_POST, handlePostFoundry); // Foundry POST
+  server.on("/Foundry", HTTP_OPTIONS, handlePreflight); // Foundry CORS Preflight
+  server.enableCORS(true); // CORS for Foundry needed
   server.begin();  // start the server
   updateLeds();
 }
@@ -107,16 +92,207 @@ void loop() {
   server.handleClient();
 }
 
+
+//Handler
+
+//Handle Browser GET
 void handleGet() {
   Serial.println("GET by Browser");
-  // handle the GET request
-
-  send();
-  updateLeds();
+  send(); // Send back Website
+  updateLeds(); // Update LEDs
 }
 
-void send(){
+//Handle Browser POST
+void handlePost() {
+  Serial.println("POST by Browser");
 
+  // Parse the form data
+  if (!(server.arg("c1") == "")) {
+    c1 = server.arg("c1").toInt();
+    pref.putInt("c1", c1);
+  }
+  if (!(server.arg("m1") == "")) {
+    m1 = server.arg("m1").toInt();
+    pref.putInt("m1", m1);
+  }
+  if (!(server.arg("c2") == "")) {
+    c2 = server.arg("c2").toInt();
+    pref.putInt("c2", c2);
+  }
+  if (!(server.arg("m2") == "")) {
+    m2 = server.arg("m2").toInt();
+    pref.putInt("m2", m2);
+  }
+  if (!(server.arg("c3") == "")) {
+    c3 = server.arg("c3").toInt();
+    pref.putInt("c3", c3);
+  }
+  if (!(server.arg("m3") == "")) {
+    m3 = server.arg("m3").toInt();
+    pref.putInt("m3", m3);
+  }
+  if (!(server.arg("c4") == "")) {
+    c4 = server.arg("c4").toInt();
+    pref.putInt("c4", c4);
+  }
+  if (!(server.arg("m4") == "")) {
+    m4 = server.arg("m4").toInt();
+    pref.putInt("m4", m4);
+  }
+  if (!(server.arg("p1") == "")) {
+    p1 = server.arg("p1");
+    pref.putString("p1", p1);
+  }
+  if (!(server.arg("p2") == "")) {
+    p2 = server.arg("p2");
+    pref.putString("p2", p2);
+  }
+  if (!(server.arg("p3") == "")) {
+    p3 = server.arg("p3");
+    pref.putString("p3", p3);
+  }
+  if (!(server.arg("p4") == "")) {
+    p4 = server.arg("p4");
+    pref.putString("p4", p4);
+  }
+  if (!(server.arg("b") == "")) {
+    b = server.arg("b").toInt();
+    pref.putInt("b", b);
+  }
+
+  send(); // Send back Website
+  updateLeds(); // Update LEDs
+}
+
+//Foundry POST
+void handlePostFoundry() {
+  if (server.hasArg("plain") == false) {
+
+    // handle empty POST
+    Serial.println("POST EMPTY");
+    server.send(400);
+
+  } else {
+    // handle the POST request from Foundry
+    Serial.println("POST from Foundry");
+    String body = server.arg("plain");
+    deserializeJson(jsonDocument, body);
+
+    // Parse the data
+    if (jsonDocument["c1"] >= 0) {
+      c1 = jsonDocument["c1"];
+      pref.putInt("c1", c1);
+    }
+    if (jsonDocument["m1"] >= 0) {
+      m1 = jsonDocument["m1"];
+      pref.putInt("m1", m1);
+    }
+    if (jsonDocument["c2"] >= 0) {
+      c2 = jsonDocument["c2"];
+      pref.putInt("c2", c2);
+    }
+    if (jsonDocument["m2"] >= 0) {
+      m2 = jsonDocument["m2"];
+      pref.putInt("m2", m2);
+    }
+    if (jsonDocument["c3"] >= 0) {
+      c3 = jsonDocument["c3"];
+      pref.putInt("c3", c3);
+    }
+    if (jsonDocument["m3"] >= 0) {
+      m3 = jsonDocument["m3"];
+      pref.putInt("m3", m3);
+    }
+    if (jsonDocument["c4"] >= 0) {
+      c4 = jsonDocument["c4"];
+      pref.putInt("c4", c4);
+    }
+    if (jsonDocument["m4"] >= 0) {
+      m4 = jsonDocument["m4"];
+      pref.putInt("m4", m4);
+    }
+
+    updateLeds(); // Update LEDs
+    server.send(200);
+  }
+}
+
+//Preflight for CORS
+void handlePreflight() {
+  server.send(200);
+}
+
+
+//LED Control
+
+// Update all LEDs with Current Values
+void updateLeds(){
+
+  int cur[] = {c1, c2, c3, c4};
+  int max[] = {m1, m2, m3, m4};
+
+  //Loop over Led Strips
+  for(int i = 0; i < numStrips; i++){
+    int c = cur[i];
+    int m = max[i];
+    int mod = modifier(c, m);
+
+    //Loop over single Leds
+    for(int x = 0; i < numLeds; x++){
+      if(x < mod){
+        leds[i][x] = Color;
+      } else {
+        leds[i][x] = CRGB(0, 0, 0);
+      }
+    }
+  }
+  //Set Brighness and Update
+  FastLED.setBrightness(b);
+  FastLED.show();
+}
+
+
+//Helper Methods
+
+//Decide on LED Color
+CRGB getColor(int c, int m) {
+
+  // Map the current value to a color index
+  CRGB heatindex;
+  int colorIndex = map(c, 0, m, 0, 100);
+
+  if (colorIndex <= 30) {
+    heatindex = CRGB(0, 153, 0);
+  } else if (colorIndex <= 70) {
+    heatindex = CRGB(153, 153, 0);
+  } else {
+    heatindex = CRGB(153, 0, 0);
+  }
+
+  return heatindex;
+}
+
+//Decide how many Leds are on
+int modifier(int c, int m){
+  int mod;
+  if (c >= m * (4.0 / 5.0)) {
+    mod = numLeds;
+  } else if (c == 0) {
+    mod = numLeds - 5;
+  } else if (c >= m * (3.0 / 5.0)) {
+    mod = numLeds - 1;
+  } else if (c >= m * (2.0 / 5.0)) {
+    mod = numLeds - 2;
+  } else if (c >= m * (1.0 / 5.0)) {
+    mod = numLeds - 3;
+  } else {
+    mod = numLeds - 4;
+  }
+  return mod;
+}
+
+//Send new Website back
+void send(){
     String Site = R"(
 
       <h1 style='text-align: center;'><span style='color: #ff0000;'><strong>Player HP Tracker</strong></span></h1>
@@ -221,388 +397,4 @@ void send(){
 
   server.send(200, "text/html", Site);
 
-}
-void handlePost() {
-
-  // handle the POST request
-  Serial.println("POST by Browser");
-  // Parse the form data
-  if (!(server.arg("c1") == "")) {
-    c1 = server.arg("c1").toInt();
-    pref.putInt("c1", c1);
-  }
-  if (!(server.arg("m1") == "")) {
-    m1 = server.arg("m1").toInt();
-    pref.putInt("m1", m1);
-  }
-  if (!(server.arg("c2") == "")) {
-    c2 = server.arg("c2").toInt();
-    pref.putInt("c2", c2);
-  }
-  if (!(server.arg("m2") == "")) {
-    m2 = server.arg("m2").toInt();
-    pref.putInt("m2", m2);
-  }
-  if (!(server.arg("c3") == "")) {
-    c3 = server.arg("c3").toInt();
-    pref.putInt("c3", c3);
-  }
-  if (!(server.arg("m3") == "")) {
-    m3 = server.arg("m3").toInt();
-    pref.putInt("m3", m3);
-  }
-  if (!(server.arg("c4") == "")) {
-    c4 = server.arg("c4").toInt();
-    pref.putInt("c4", c4);
-  }
-  if (!(server.arg("m4") == "")) {
-    m4 = server.arg("m4").toInt();
-    pref.putInt("m4", m4);
-  }
-  if (!(server.arg("p1") == "")) {
-    p1 = server.arg("p1");
-    pref.putString("p1", p1);
-  }
-  if (!(server.arg("p2") == "")) {
-    p2 = server.arg("p2");
-    pref.putString("p2", p2);
-  }
-  if (!(server.arg("p3") == "")) {
-    p3 = server.arg("p3");
-    pref.putString("p3", p3);
-  }
-  if (!(server.arg("p4") == "")) {
-    p4 = server.arg("p4");
-    pref.putString("p4", p4);
-  }
-  if (!(server.arg("b") == "")) {
-    b = server.arg("b").toInt();
-    pref.putInt("b", b);
-  }
-
-  // Update the LED colors
-  updateLeds();
-  send();
-
-}
-
-void handlePostFoundry() {
-
-  if (server.hasArg("plain") == false) {
-
-
-
-    // handle the POST request from Foundry
-    Serial.println("POST EMPTY");
-    server.send(400);
-
-  } else {
-
-    // handle the POST request from Foundry
-    Serial.println("POST from Foundry");
-
-    String body = server.arg("plain");
-    deserializeJson(jsonDocument, body);
-    // Parse the data
-    if (jsonDocument["c1"] >= 0) {
-      c1 = jsonDocument["c1"];
-      pref.putInt("c1", c1);
-    }
-    if (jsonDocument["m1"] >= 0) {
-      m1 = jsonDocument["m1"];
-      pref.putInt("m1", m1);
-    }
-    if (jsonDocument["c2"] >= 0) {
-      c2 = jsonDocument["c2"];
-      pref.putInt("c2", c2);
-    }
-    if (jsonDocument["m2"] >= 0) {
-      m2 = jsonDocument["m2"];
-      pref.putInt("m2", m2);
-    }
-    if (jsonDocument["c3"] >= 0) {
-      c3 = jsonDocument["c3"];
-      pref.putInt("c3", c3);
-    }
-    if (jsonDocument["m3"] >= 0) {
-      m3 = jsonDocument["m3"];
-      pref.putInt("m3", m3);
-    }
-    if (jsonDocument["c4"] >= 0) {
-      c4 = jsonDocument["c4"];
-      pref.putInt("c4", c4);
-    }
-    if (jsonDocument["m4"] >= 0) {
-      m4 = jsonDocument["m4"];
-      pref.putInt("m4", m4);
-    }
-
-    // Update the LED colors
-    updateLeds();
-    server.send(200, "application/json", "{}");
-  }
-}
-
-void handlePreflight() {
-  server.send(200);
-}
-
-CRGB getColor(int c, int m) {
-
-  // Map the current value to a color index
-  CRGB heatindex;
-  int colorIndex = map(c, 0, m, 0, 100);
-
-  if (colorIndex <= 30) {
-    heatindex = CRGB(0, 153, 0);
-  } else if (colorIndex <= 70) {
-    heatindex = CRGB(153, 153, 0);
-  } else {
-    heatindex = CRGB(153, 0, 0);
-  }
-
-  return heatindex;
-}
-
-void updateLeds() {
-  
-  for (int i = 0; i < 4; i++) {
-    int c, m;
-
-    if (i == 0) {
-
-      c = c1;
-      m = m1;
-      Color = getColor(c, m);
-      Serial.println(p1);
-      Serial.println(c);
-      Serial.println(m);
-
-      if (c >= m * (4.0 / 5.0)) {
-        leds1[0] = Color;
-        leds1[1] = Color;
-        leds1[2] = Color;
-        leds1[3] = Color;
-        leds1[4] = Color;
-
-      } else if (c == 0) {
-        leds1[0] = Color;
-        leds1[1] = ColorFromPalette(myPal, 0);
-        leds1[2] = Color;
-        leds1[3] = ColorFromPalette(myPal, 0);
-        leds1[4] = Color;
-
-      } else if (c >= m * (3.0 / 5.0)) {
-        leds1[0] = Color;
-        leds1[1] = Color;
-        leds1[2] = Color;
-        leds1[3] = Color;
-        leds1[4] = ColorFromPalette(myPal, 0);
-
-
-      } else if (c >= m * (2.0 / 5.0)) {
-        leds1[0] = Color;
-        leds1[1] = Color;
-        leds1[2] = Color;
-        leds1[3] = ColorFromPalette(myPal, 0);
-        leds1[4] = ColorFromPalette(myPal, 0);
-
-
-
-      } else if (c >= m * (1.0 / 5.0)) {
-        leds1[0] = Color;
-        leds1[1] = Color;
-        leds1[2] = ColorFromPalette(myPal, 0);
-        leds1[3] = ColorFromPalette(myPal, 0);
-        leds1[4] = ColorFromPalette(myPal, 0);
-
-
-      } else {
-        leds1[0] = Color;
-        leds1[1] = ColorFromPalette(myPal, 0);
-        leds1[2] = ColorFromPalette(myPal, 0);
-        leds1[3] = ColorFromPalette(myPal, 0);
-        leds1[4] = ColorFromPalette(myPal, 0);
-      }
-
-    } else if (i == 1) {
-
-      c = c2;
-      m = m2;
-      Color = getColor(c, m);
-      Serial.println(p2);
-      Serial.println(c);
-      Serial.println(m);
-
-
-      if (c >= m * (4.0 / 5.0)) {
-        leds2[0] = Color;
-        leds2[1] = Color;
-        leds2[2] = Color;
-        leds2[3] = Color;
-        leds2[4] = Color;
-
-      } else if (c == 0) {
-        leds2[0] = Color;
-        leds2[1] = ColorFromPalette(myPal, 0);
-        leds2[2] = Color;
-        leds2[3] = ColorFromPalette(myPal, 0);
-        leds2[4] = Color;
-
-
-      } else if (c >= m * (3.0 / 5.0)) {
-        leds2[0] = Color;
-        leds2[1] = Color;
-        leds2[2] = Color;
-        leds2[3] = Color;
-        leds2[4] = ColorFromPalette(myPal, 0);
-
-
-      } else if (c >= m * (2.0 / 5.0)) {
-        leds2[0] = Color;
-        leds2[1] = Color;
-        leds2[2] = Color;
-        leds2[3] = ColorFromPalette(myPal, 0);
-        leds2[4] = ColorFromPalette(myPal, 0);
-
-
-
-      } else if (c >= m * (1.0 / 5.0)) {
-        leds2[0] = Color;
-        leds2[1] = Color;
-        leds2[2] = ColorFromPalette(myPal, 0);
-        leds2[3] = ColorFromPalette(myPal, 0);
-        leds2[4] = ColorFromPalette(myPal, 0);
-
-
-      } else {
-        leds2[0] = Color;
-        leds2[1] = ColorFromPalette(myPal, 0);
-        leds2[2] = ColorFromPalette(myPal, 0);
-        leds2[3] = ColorFromPalette(myPal, 0);
-        leds2[4] = ColorFromPalette(myPal, 0);
-      }
-
-
-    } else if (i == 2) {
-
-      c = c3;
-      m = m3;
-      Color = getColor(c, m);
-      Serial.println(p3);
-      Serial.println(c);
-      Serial.println(m);
-
-
-      if (c >= m * (4.0 / 5.0)) {
-        leds3[0] = Color;
-        leds3[1] = Color;
-        leds3[2] = Color;
-        leds3[3] = Color;
-        leds3[4] = Color;
-
-      } else if (c == 0) {
-        leds3[0] = Color;
-        leds3[1] = ColorFromPalette(myPal, 0);
-        leds3[2] = Color;
-        leds3[3] = ColorFromPalette(myPal, 0);
-        leds3[4] = Color;
-
-
-      } else if (c >= m * (3.0 / 5.0)) {
-        leds3[0] = Color;
-        leds3[1] = Color;
-        leds3[2] = Color;
-        leds3[3] = Color;
-        leds3[4] = ColorFromPalette(myPal, 0);
-
-
-      } else if (c >= m * (2.0 / 5.0)) {
-        leds3[0] = Color;
-        leds3[1] = Color;
-        leds3[2] = Color;
-        leds3[3] = ColorFromPalette(myPal, 0);
-        leds3[4] = ColorFromPalette(myPal, 0);
-
-
-
-      } else if (c >= m * (1.0 / 5.0)) {
-        leds3[0] = Color;
-        leds3[1] = Color;
-        leds3[2] = ColorFromPalette(myPal, 0);
-        leds3[3] = ColorFromPalette(myPal, 0);
-        leds3[4] = ColorFromPalette(myPal, 0);
-
-
-      } else {
-        leds3[0] = Color;
-        leds3[1] = ColorFromPalette(myPal, 0);
-        leds3[2] = ColorFromPalette(myPal, 0);
-        leds3[3] = ColorFromPalette(myPal, 0);
-        leds3[4] = ColorFromPalette(myPal, 0);
-      }
-
-
-    } else {
-
-      c = c4;
-      m = m4;
-      Color = getColor(c, m);
-      Serial.println(p4);
-      Serial.println(c);
-      Serial.println(m);
-
-
-      if (c >= m * (4.0 / 5.0)) {
-        leds4[0] = Color;
-        leds4[1] = Color;
-        leds4[2] = Color;
-        leds4[3] = Color;
-        leds4[4] = Color;
-
-      } else if (c == 0 ) {
-        leds4[0] = Color;
-        leds4[1] = ColorFromPalette(myPal, 0);
-        leds4[2] = Color;
-        leds4[3] = ColorFromPalette(myPal, 0);
-        leds4[4] = Color;
-
-
-      } else if (c >= m * (3.0 / 5.0)) {
-        leds4[0] = Color;
-        leds4[1] = Color;
-        leds4[2] = Color;
-        leds4[3] = Color;
-        leds4[4] = ColorFromPalette(myPal, 0);
-
-
-      } else if (c >= m * (2.0 / 5.0)) {
-        leds4[0] = Color;
-        leds4[1] = Color;
-        leds4[2] = Color;
-        leds4[3] = ColorFromPalette(myPal, 0);
-        leds4[4] = ColorFromPalette(myPal, 0);
-
-
-
-      } else if (c >= m * (1.0 / 5.0)) {
-        leds4[0] = Color;
-        leds4[1] = Color;
-        leds4[2] = ColorFromPalette(myPal, 0);
-        leds4[3] = ColorFromPalette(myPal, 0);
-        leds4[4] = ColorFromPalette(myPal, 0);
-
-
-      } else {
-        leds4[0] = Color;
-        leds4[1] = ColorFromPalette(myPal, 0);
-        leds4[2] = ColorFromPalette(myPal, 0);
-        leds4[3] = ColorFromPalette(myPal, 0);
-        leds4[4] = ColorFromPalette(myPal, 0);
-      }
-    }
-  }
-  
-  FastLED.setBrightness(b);
-  FastLED.show();
 }
