@@ -19,21 +19,20 @@ const int Pin4 = 27;
 const int numLeds = 5;
 const int numStrips = 4;
 
-int colorIndex;
-CRGB Color;
-
 Preferences pref;
 
 StaticJsonDocument<250> jsonDocument;
 
 CRGB leds[numStrips][numLeds];
 
-// Current and maximum HP values
-int c1, m1, c2, m2, c3, m3, c4, m4;
-// Player Names
-String p1, p2, p3, p4;
-// Brightness
+// Brightness, Current HP, Max HP, Player Names
 int b;
+int c[4];
+int m[4];
+String name[4];
+String cName[] = {"c1", "c2", "c3", "c4"};
+String mName[] = {"m1", "m2", "m3", "m4"};
+String nameName[] = {"p1", "p2", "p3", "p4"};
 
 WebServer server(80);  // create a server on port 80
 
@@ -42,18 +41,11 @@ void setup() {
 
   //Value Safe
   pref.begin("ValueSafe", false);
-  c1 = pref.getInt("c1", 0);
-  m1 = pref.getInt("m1", 0);
-  c2 = pref.getInt("c2", 0);
-  m2 = pref.getInt("m2", 0);
-  c3 = pref.getInt("c3", 0);
-  m3 = pref.getInt("m3", 0);
-  c4 = pref.getInt("c4", 0);
-  m4 = pref.getInt("m4", 0);
-  p1 = pref.getString("p1", "Player 1");
-  p2 = pref.getString("p2", "Player 2");
-  p3 = pref.getString("p3", "Player 3");
-  p4 = pref.getString("p4", "Player 4");
+  for(int i = 0; i < numStrips; i++){
+    c[i] = pref.getInt(cName[i].c_str(), 0);
+    m[i] = pref.getInt(mName[i].c_str(), 0);
+    name[i] = pref.getString(nameName[i].c_str(), "Player");
+  }
   b  = pref.getInt("b", 150);
 
   // Initialize the LED strip
@@ -107,53 +99,19 @@ void handlePost() {
   Serial.println("POST by Browser");
 
   // Parse the form data
-  if (!(server.arg("c1") == "")) {
-    c1 = server.arg("c1").toInt();
-    pref.putInt("c1", c1);
-  }
-  if (!(server.arg("m1") == "")) {
-    m1 = server.arg("m1").toInt();
-    pref.putInt("m1", m1);
-  }
-  if (!(server.arg("c2") == "")) {
-    c2 = server.arg("c2").toInt();
-    pref.putInt("c2", c2);
-  }
-  if (!(server.arg("m2") == "")) {
-    m2 = server.arg("m2").toInt();
-    pref.putInt("m2", m2);
-  }
-  if (!(server.arg("c3") == "")) {
-    c3 = server.arg("c3").toInt();
-    pref.putInt("c3", c3);
-  }
-  if (!(server.arg("m3") == "")) {
-    m3 = server.arg("m3").toInt();
-    pref.putInt("m3", m3);
-  }
-  if (!(server.arg("c4") == "")) {
-    c4 = server.arg("c4").toInt();
-    pref.putInt("c4", c4);
-  }
-  if (!(server.arg("m4") == "")) {
-    m4 = server.arg("m4").toInt();
-    pref.putInt("m4", m4);
-  }
-  if (!(server.arg("p1") == "")) {
-    p1 = server.arg("p1");
-    pref.putString("p1", p1);
-  }
-  if (!(server.arg("p2") == "")) {
-    p2 = server.arg("p2");
-    pref.putString("p2", p2);
-  }
-  if (!(server.arg("p3") == "")) {
-    p3 = server.arg("p3");
-    pref.putString("p3", p3);
-  }
-  if (!(server.arg("p4") == "")) {
-    p4 = server.arg("p4");
-    pref.putString("p4", p4);
+  for(int i = 0; i < numStrips; i++){
+    if(!(server.arg(cName[i]) == "")){
+      c[i] = server.arg(cName[i]).toInt();
+      pref.putInt(cName[i].c_str(), c[i]);
+    }
+    if(!(server.arg(mName[i]) == "")){
+      m[i] = server.arg(mName[i]).toInt();
+      pref.putInt(mName[i].c_str(), m[i]);
+    }
+    if(!(server.arg(nameName[i]) == "")){
+      name[i] = server.arg(nameName[i]);
+      pref.putString(nameName[i].c_str(), name[i]);
+    }
   }
   if (!(server.arg("b") == "")) {
     b = server.arg("b").toInt();
@@ -178,40 +136,17 @@ void handlePostFoundry() {
     String body = server.arg("plain");
     deserializeJson(jsonDocument, body);
 
-    // Parse the data
-    if (jsonDocument["c1"] >= 0) {
-      c1 = jsonDocument["c1"];
-      pref.putInt("c1", c1);
+    // Parse the 
+    for(int i; i < numStrips; i++){
+      if (jsonDocument[cName[i]] >= 0) {
+        c[i] = jsonDocument[cName[i]];
+        pref.putInt(cName[i].c_str(), c[i]);
+      }
+      if (jsonDocument[mName[i]] >= 0) {
+        m[i] = jsonDocument[mName[i]];
+        pref.putInt(mName[i].c_str(), m[i]);
+      }
     }
-    if (jsonDocument["m1"] >= 0) {
-      m1 = jsonDocument["m1"];
-      pref.putInt("m1", m1);
-    }
-    if (jsonDocument["c2"] >= 0) {
-      c2 = jsonDocument["c2"];
-      pref.putInt("c2", c2);
-    }
-    if (jsonDocument["m2"] >= 0) {
-      m2 = jsonDocument["m2"];
-      pref.putInt("m2", m2);
-    }
-    if (jsonDocument["c3"] >= 0) {
-      c3 = jsonDocument["c3"];
-      pref.putInt("c3", c3);
-    }
-    if (jsonDocument["m3"] >= 0) {
-      m3 = jsonDocument["m3"];
-      pref.putInt("m3", m3);
-    }
-    if (jsonDocument["c4"] >= 0) {
-      c4 = jsonDocument["c4"];
-      pref.putInt("c4", c4);
-    }
-    if (jsonDocument["m4"] >= 0) {
-      m4 = jsonDocument["m4"];
-      pref.putInt("m4", m4);
-    }
-
     updateLeds(); // Update LEDs
     server.send(200);
   }
@@ -225,18 +160,13 @@ void handlePreflight() {
 
 //LED Control
 
-// Update all LEDs with Current Values
+// Update all LEDs with crent Values
 void updateLeds(){
-
-  int cur[] = {c1, c2, c3, c4};
-  int max[] = {m1, m2, m3, m4};
 
   //Loop over Led Strips
   for(int i = 0; i < numStrips; i++){
-    int c = cur[i];
-    int m = max[i];
-    int mod = modifier(c, m);
-
+    int mod = modifier(c[i], m[i]);
+    CRGB Color = getColor(c[i], m[i]);
     //Loop over single Leds
     for(int x = 0; i < numLeds; x++){
       if(x < mod){
@@ -381,18 +311,18 @@ void send(){
 
   server.sendHeader("Content-Type", "text/html");
 
-  Site.replace("$c1", String(c1));
-  Site.replace("$m1", String(m1));
-  Site.replace("$c2", String(c2));
-  Site.replace("$m2", String(m2));
-  Site.replace("$c3", String(c3));
-  Site.replace("$m3", String(m3));
-  Site.replace("$c4", String(c4));
-  Site.replace("$m4", String(m4));
-  Site.replace("$p1", String(p1));
-  Site.replace("$p2", String(p2));
-  Site.replace("$p3", String(p3));
-  Site.replace("$p4", String(p4));
+  Site.replace("$c1", String(c[0]));
+  Site.replace("$m1", String(m[0]));
+  Site.replace("$c2", String(c[1]));
+  Site.replace("$m2", String(m[1]));
+  Site.replace("$c3", String(c[2]));
+  Site.replace("$m3", String(m[2]));
+  Site.replace("$c4", String(c[3]));
+  Site.replace("$m4", String(m[3]));
+  Site.replace("$p1", String(name[0]));
+  Site.replace("$p2", String(name[1]));
+  Site.replace("$p3", String(name[2]));
+  Site.replace("$p4", String(name[3]));
   Site.replace("$b", String(b));
 
   server.send(200, "text/html", Site);
