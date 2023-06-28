@@ -169,7 +169,7 @@ void updateLeds(){
     int mod = modifier(c[i], m[i]);
     CRGB Color = getColor(c[i], m[i]);
     //Loop over single Leds
-    for(int x = 0; x < numLeds; x++){
+    for(int x = 0; i < numLeds; x++){
       if(x < mod){
         leds[i][x] = Color;
       } else {
