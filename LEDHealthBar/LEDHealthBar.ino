@@ -3,8 +3,8 @@
 #include <WebServer.h>
 #include <Preferences.h>
 #include <ArduinoJson.h>
-#include "WifiCreds.h"
-#include "HTML.h"
+#include "WifiCreds.h" // Header with WIFI_SSID and WIFI_PASSWD Definition
+#include "HTML.h" // HTML for Browser Control
 
 // WiFi credentials
 const char* ssid = WIFI_SSID;
@@ -16,25 +16,22 @@ const int Pin2 = 25;
 const int Pin3 = 26;
 const int Pin4 = 27;
 
-// Number of LEDs in each strip
+// Dimensions
 const int numLeds = 5;
 const int numStrips = 4;
 
-Preferences pref;
+Preferences pref; // Value Safe
+StaticJsonDocument<250> jsonDocument; // Json for HTTP Requests
+CRGB leds[numStrips][numLeds]; // Led Control
 
-StaticJsonDocument<250> jsonDocument;
-
-CRGB leds[numStrips][numLeds];
-
-// Brightness, Current HP, Max HP, Player Names
-int b;
-int c[4];
-int bc[4];
-int m[4];
-String p[4];
-String cName[] = {"c1", "c2", "c3", "c4"};
-String mName[] = {"m1", "m2", "m3", "m4"};
-String pName[] = {"p1", "p2", "p3", "p4"};
+int b; //Brightness
+int c[4]; // Current HP
+int bc[4]; // Last Current HP for Animation Checker
+int m[4]; // Max HP
+String p[4]; // Player Name
+String cName[] = {"c1", "c2", "c3", "c4"}; // Value Safe Keys
+String mName[] = {"m1", "m2", "m3", "m4"}; // Value Safe Keys
+String pName[] = {"p1", "p2", "p3", "p4"}; // Value Safe Keys
 
 WebServer server(80);  // create a server on port 80
 
@@ -47,7 +44,7 @@ void setup() {
     c[i] = pref.getInt(cName[i].c_str(), 0);
     bc[i] = pref.getInt(cName[i].c_str(), 0);
     m[i] = pref.getInt(mName[i].c_str(), 0);
-    p[i] = pref.getString(pName[i].c_str(), "Player");
+    p[i] = pref.getString(pName[i].c_str(), String("Player" + (i+1)));
   }
   b  = pref.getInt("b", 150);
 
@@ -124,12 +121,9 @@ void handlePost() {
 
 //Foundry POST
 void handlePostFoundry() {
-  if (server.hasArg("plain") == false) {
-
-    // handle empty POST
-    Serial.println("POST EMPTY");
+  if (server.hasArg("plain") == false) { // handle empty POST
+    Serial.println("POST from Foundry EMPTY");
     server.send(400);
-
   } else {
     // handle the POST request from Foundry
     Serial.println("POST from Foundry");
@@ -168,7 +162,7 @@ void updateLeds(int boot){
   for(int i = 0; i < numStrips; i++){
     //Check for Animations
     AnimationChecker(i);
-
+    //Get Modifier and Color
     int mod = modifier(c[i], m[i]);
     CRGB Color = getColor(c[i], m[i]);
     //Loop over single Leds
@@ -178,13 +172,14 @@ void updateLeds(int boot){
       } else {
         leds[i][x] = CRGB(0, 0, 0); // Off
       }
+      //On Boot Update individual Leds
       if(boot = 1){
         FastLED.show();
         delay(200);
       }
     }
   }
-  //Set Brighness and Update
+  //Set Brighness and Commit
   FastLED.setBrightness(b);
   FastLED.show();
 }
@@ -215,14 +210,27 @@ void HealAnimation(int i){
   }
 }
 
-//TBD
+//Full Strip Blink Red 3 Times
 void DeathAnimation(int i){
+  for(int y = 0; y < 3; y++){
+    for(int x = 0; x < numLeds; x++){
+      leds[i][x] = CRGB(0, 153, 0); // Red
+    }
+    FastLED.show();
+    delay(500);
 
+    for(int x = 0; x < numLeds; x++){
+      leds[i][x] = CRGB(0, 0, 0); // Off
+    }
+    FastLED.show();
+    delay(500);
+  }
 }
+
 
 //Helper Methods
 
-// Check how HP changed
+// Check how HP changed to determine Animation
 void AnimationChecker(int i){
   if((c[i] < bc[i]) && (c[i] = 0)){
     DeathAnimation(i);
