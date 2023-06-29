@@ -29,11 +29,12 @@ CRGB leds[numStrips][numLeds];
 // Brightness, Current HP, Max HP, Player Names
 int b;
 int c[4];
+int bc[4];
 int m[4];
-String name[4];
+String p[4];
 String cName[] = {"c1", "c2", "c3", "c4"};
 String mName[] = {"m1", "m2", "m3", "m4"};
-String nameName[] = {"p1", "p2", "p3", "p4"};
+String pName[] = {"p1", "p2", "p3", "p4"};
 
 WebServer server(80);  // create a server on port 80
 
@@ -44,8 +45,9 @@ void setup() {
   pref.begin("ValueSafe", false);
   for(int i = 0; i < numStrips; i++){
     c[i] = pref.getInt(cName[i].c_str(), 0);
+    bc[i] = pref.getInt(cName[i].c_str(), 0);
     m[i] = pref.getInt(mName[i].c_str(), 0);
-    name[i] = pref.getString(nameName[i].c_str(), "Player");
+    p[i] = pref.getString(pName[i].c_str(), "Player");
   }
   b  = pref.getInt("b", 150);
 
@@ -64,10 +66,6 @@ void setup() {
     delay(500);
     Serial.print(".");
   }
-  Serial.println();
-  Serial.print("Connected to ");
-  Serial.println(ssid);
-  Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
   // Start the server
@@ -77,7 +75,7 @@ void setup() {
   server.on("/Foundry", HTTP_OPTIONS, handlePreflight); // Foundry CORS Preflight
   server.enableCORS(true); // CORS for Foundry needed
   server.begin();  // start the server
-  updateLeds();
+  updateLeds(1);
 }
 
 void loop() {
@@ -92,7 +90,7 @@ void loop() {
 void handleGet() {
   Serial.println("GET by Browser");
   send(); // Send back Website
-  updateLeds(); // Update LEDs
+  updateLeds(0); // Update LEDs
 }
 
 //Handle Browser POST
@@ -102,6 +100,7 @@ void handlePost() {
   // Parse the form data
   for(int i = 0; i < numStrips; i++){
     if(!(server.arg(cName[i]) == "")){
+      bc[i] = c[i]; // Log last HP for Animation Checker
       c[i] = server.arg(cName[i]).toInt();
       pref.putInt(cName[i].c_str(), c[i]);
     }
@@ -109,9 +108,9 @@ void handlePost() {
       m[i] = server.arg(mName[i]).toInt();
       pref.putInt(mName[i].c_str(), m[i]);
     }
-    if(!(server.arg(nameName[i]) == "")){
-      name[i] = server.arg(nameName[i]);
-      pref.putString(nameName[i].c_str(), name[i]);
+    if(!(server.arg(pName[i]) == "")){
+      p[i] = server.arg(pName[i]);
+      pref.putString(pName[i].c_str(), p[i]);
     }
   }
   if (!(server.arg("b") == "")) {
@@ -120,7 +119,7 @@ void handlePost() {
   }
 
   send(); // Send back Website
-  updateLeds(); // Update LEDs
+  updateLeds(0); // Update LEDs
 }
 
 //Foundry POST
@@ -137,9 +136,10 @@ void handlePostFoundry() {
     String body = server.arg("plain");
     deserializeJson(jsonDocument, body);
 
-    // Parse the 
+    // Parse the Data
     for(int i; i < numStrips; i++){
       if (jsonDocument[cName[i]] >= 0) {
+        bc[i] = c[i]; // Log last HP for Animation Checker
         c[i] = jsonDocument[cName[i]];
         pref.putInt(cName[i].c_str(), c[i]);
       }
@@ -148,7 +148,7 @@ void handlePostFoundry() {
         pref.putInt(mName[i].c_str(), m[i]);
       }
     }
-    updateLeds(); // Update LEDs
+    updateLeds(0); // Update LEDs
     server.send(200);
   }
 }
@@ -162,10 +162,13 @@ void handlePreflight() {
 //LED Control
 
 // Update all LEDs with crent Values
-void updateLeds(){
+void updateLeds(int boot){
 
   //Loop over Led Strips
   for(int i = 0; i < numStrips; i++){
+    //Check for Animations
+    AnimationChecker(i);
+
     int mod = modifier(c[i], m[i]);
     CRGB Color = getColor(c[i], m[i]);
     //Loop over single Leds
@@ -173,7 +176,11 @@ void updateLeds(){
       if(x < mod){
         leds[i][x] = Color;
       } else {
-        leds[i][x] = CRGB(0, 0, 0);
+        leds[i][x] = CRGB(0, 0, 0); // Off
+      }
+      if(boot = 1){
+        FastLED.show();
+        delay(200);
       }
     }
   }
@@ -182,11 +189,52 @@ void updateLeds(){
   FastLED.show();
 }
 
+//Red Bar from top piercing down
+void DamageAnimation(int i){
+  int mod = modifier(c[i], m[i]);
+  //Loop over single Leds
+  for(int x = mod; x >= 0; x--){
+      leds[i][x] = CRGB(0, 153, 0); // Red
+      FastLED.show();
+      delay(200);
+  }
+}
+
+//Green Heal effect going up
+void HealAnimation(int i){
+  int mod = modifier(c[i], m[i]);
+  //Loop over single Leds
+  for(int x = 0; x < numLeds; x++){
+    if(x < mod){
+      leds[i][x] = CRGB(153, 0, 0); // Green
+     } else {
+       leds[i][x] = CRGB(0, 0, 0); // Off
+    }
+      FastLED.show();
+      delay(200);
+  }
+}
+
+//TBD
+void DeathAnimation(int i){
+
+}
 
 //Helper Methods
 
+// Check how HP changed
+void AnimationChecker(int i){
+  if((c[i] < bc[i]) && (c[i] = 0)){
+    DeathAnimation(i);
+  } else if(c[i] < bc[i]){
+    DamageAnimation(i);
+  } else if(c[i] > bc[i]) {
+    HealAnimation(i);
+  } 
+}
+
 //Decide on LED Color
-CRGB getColor(int c, int m) {
+CRGB getColor(int c, int m) { 
 
   // Map the current value to a color index
   CRGB heatindex;
@@ -228,19 +276,12 @@ void send(){
   String SiteBody = SITE_HTML;
 
   server.sendHeader("Content-Type", "text/html");
-
-  SiteBody.replace("$c1", String(c[0]));
-  SiteBody.replace("$m1", String(m[0]));
-  SiteBody.replace("$c2", String(c[1]));
-  SiteBody.replace("$m2", String(m[1]));
-  SiteBody.replace("$c3", String(c[2]));
-  SiteBody.replace("$m3", String(m[2]));
-  SiteBody.replace("$c4", String(c[3]));
-  SiteBody.replace("$m4", String(m[3]));
-  SiteBody.replace("$p1", String(name[0]));
-  SiteBody.replace("$p2", String(name[1]));
-  SiteBody.replace("$p3", String(name[2]));
-  SiteBody.replace("$p4", String(name[3]));
+  String escSign = "$";
+  for(int i = 0; i < numStrips; i++){
+    SiteBody.replace(String(escSign.concat(cName[i].c_str())), String(c[i]));
+    SiteBody.replace(String(escSign.concat(mName[i].c_str())), String(m[i]));
+    SiteBody.replace(String(escSign.concat(pName[i].c_str())), String(p[i]));
+  }
   SiteBody.replace("$b", String(b));
 
   server.send(200, "text/html", SiteBody);
