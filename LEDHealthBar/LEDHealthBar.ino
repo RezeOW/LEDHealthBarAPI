@@ -54,9 +54,6 @@ void setup() {
   FastLED.addLeds<WS2812B, Pin3>(leds[2], numLeds);
   FastLED.addLeds<WS2812B, Pin4>(leds[3], numLeds);
 
-  CRGB correction = CRGB(255, 255, 255);
-  FastLED.setCorrection(correction);
-
   // Connect to WiFi
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
@@ -141,6 +138,11 @@ void handlePostFoundry() {
         m[i] = jsonDocument[mName[i]];
         pref.putInt(mName[i].c_str(), m[i]);
       }
+      if (jsonDocument[pName[i]]) {
+        const char* ptemp = jsonDocument[pName[i]];
+        p[i] = ptemp;
+        pref.putString(pName[i].c_str(), p[i]);
+      }
     }
     updateLeds(0); // Update LEDs
     server.send(200);
@@ -157,7 +159,6 @@ void handlePreflight() {
 
 // Update all LEDs with crent Values
 void updateLeds(int boot){
-
   //Loop over Led Strips
   for(int i = 0; i < numStrips; i++){
     //Check for Animations
@@ -218,7 +219,6 @@ void DeathAnimation(int i){
     }
     FastLED.show();
     delay(500);
-
     for(int x = 0; x < numLeds; x++){
       leds[i][x] = CRGB(0, 0, 0); // Off
     }
@@ -243,7 +243,6 @@ void AnimationChecker(int i){
 
 //Decide on LED Color
 CRGB getColor(int c, int m) { 
-
   // Map the current value to a color index
   CRGB heatindex;
   int colorIndex = map(c, 0, m, 0, 100);
@@ -255,7 +254,6 @@ CRGB getColor(int c, int m) {
   } else {
     heatindex = CRGB(153, 0, 0);
   }
-
   return heatindex;
 }
 
@@ -282,9 +280,9 @@ int modifier(int c, int m){
 void send(){
 
   String SiteBody = SITE_HTML;
-
-  server.sendHeader("Content-Type", "text/html");
   String escSign = "$";
+  server.sendHeader("Content-Type", "text/html");
+  // Replace with current Values
   for(int i = 0; i < numStrips; i++){
     SiteBody.replace(String(escSign.concat(cName[i].c_str())), String(c[i]));
     SiteBody.replace(String(escSign.concat(mName[i].c_str())), String(m[i]));
@@ -293,5 +291,4 @@ void send(){
   SiteBody.replace("$b", String(b));
 
   server.send(200, "text/html", SiteBody);
-
 }
