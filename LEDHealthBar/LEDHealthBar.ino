@@ -69,7 +69,8 @@ void setup() {
   server.on("/Foundry", HTTP_OPTIONS, handlePreflight); // Foundry CORS Preflight
   server.enableCORS(true); // CORS for Foundry needed
   server.begin();  // start the server
-  updateLeds(1);
+  updateLeds(true, false);
+  Serial.println("Booting finished");
 }
 
 void loop() {
@@ -84,7 +85,7 @@ void loop() {
 void handleGet() {
   Serial.println("GET by Browser");
   send(); // Send back Website
-  updateLeds(0); // Update LEDs
+  updateLeds(true, true); // Update LEDs
 }
 
 //Handle Browser POST
@@ -113,7 +114,7 @@ void handlePost() {
   }
 
   send(); // Send back Website
-  updateLeds(0); // Update LEDs
+  updateLeds(true, true); // Update LEDs
 }
 
 //Foundry POST
@@ -133,18 +134,21 @@ void handlePostFoundry() {
         bc[i] = c[i]; // Log last HP for Animation Checker
         c[i] = jsonDocument[cName[i]];
         pref.putInt(cName[i].c_str(), c[i]);
+        Serial.println(c[i]);
       }
       if (jsonDocument[mName[i]] >= 0) {
         m[i] = jsonDocument[mName[i]];
         pref.putInt(mName[i].c_str(), m[i]);
+        Serial.println(m[i]);
       }
       if (jsonDocument[pName[i]]) {
         const char* ptemp = jsonDocument[pName[i]];
         p[i] = ptemp;
         pref.putString(pName[i].c_str(), p[i]);
+        Serial.println(p[i]);
       }
     }
-    updateLeds(0); // Update LEDs
+    updateLeds(false, false); // Update LEDs
     server.send(200);
   }
 }
@@ -158,11 +162,15 @@ void handlePreflight() {
 //LED Control
 
 // Update all LEDs with crent Values
-void updateLeds(int boot){
+void updateLeds(bool boot, bool animation){
+  FastLED.setBrightness(b); // Set Brightness
   //Loop over Led Strips
   for(int i = 0; i < numStrips; i++){
     //Check for Animations
-    AnimationChecker(i);
+    if( animation == true ){
+      AnimationChecker(i);
+      Serial.println("Animations");
+    }
     //Get Modifier and Color
     int mod = modifier(c[i], m[i]);
     CRGB Color = getColor(c[i], m[i]);
@@ -174,25 +182,25 @@ void updateLeds(int boot){
         leds[i][x] = CRGB(0, 0, 0); // Off
       }
       //On Boot Update individual Leds
-      if(boot = 1){
+      if(boot == true){
+        Serial.println("LED BOOT");
         FastLED.show();
-        delay(200);
+        delay(50);
       }
     }
   }
-  //Set Brighness and Commit
-  FastLED.setBrightness(b);
+  // Commit
   FastLED.show();
 }
 
 //Red Bar from top piercing down
 void DamageAnimation(int i){
-  int mod = modifier(c[i], m[i]);
+  int mod = modifier(bc[i], m[i]) - 1;
   //Loop over single Leds
   for(int x = mod; x >= 0; x--){
       leds[i][x] = CRGB(0, 153, 0); // Red
       FastLED.show();
-      delay(200);
+      delay(50);
   }
 }
 
@@ -207,23 +215,7 @@ void HealAnimation(int i){
        leds[i][x] = CRGB(0, 0, 0); // Off
     }
       FastLED.show();
-      delay(200);
-  }
-}
-
-//Full Strip Blink Red 3 Times
-void DeathAnimation(int i){
-  for(int y = 0; y < 3; y++){
-    for(int x = 0; x < numLeds; x++){
-      leds[i][x] = CRGB(0, 153, 0); // Red
-    }
-    FastLED.show();
-    delay(500);
-    for(int x = 0; x < numLeds; x++){
-      leds[i][x] = CRGB(0, 0, 0); // Off
-    }
-    FastLED.show();
-    delay(500);
+      delay(50);
   }
 }
 
@@ -232,9 +224,7 @@ void DeathAnimation(int i){
 
 // Check how HP changed to determine Animation
 void AnimationChecker(int i){
-  if((c[i] < bc[i]) && (c[i] = 0)){
-    DeathAnimation(i);
-  } else if(c[i] < bc[i]){
+if(c[i] < bc[i]){
     DamageAnimation(i);
   } else if(c[i] > bc[i]) {
     HealAnimation(i);
@@ -280,14 +270,21 @@ int modifier(int c, int m){
 void send(){
 
   String SiteBody = SITE_HTML;
-  String escSign = "$";
+
   server.sendHeader("Content-Type", "text/html");
   // Replace with current Values
-  for(int i = 0; i < numStrips; i++){
-    SiteBody.replace(String(escSign.concat(cName[i].c_str())), String(c[i]));
-    SiteBody.replace(String(escSign.concat(mName[i].c_str())), String(m[i]));
-    SiteBody.replace(String(escSign.concat(pName[i].c_str())), String(p[i]));
-  }
+  SiteBody.replace("$c1", String(c[0]));
+  SiteBody.replace("$m1", String(m[0]));
+  SiteBody.replace("$c2", String(c[1]));
+  SiteBody.replace("$m2", String(m[1]));
+  SiteBody.replace("$c3", String(c[2]));
+  SiteBody.replace("$m3", String(m[2]));
+  SiteBody.replace("$c4", String(c[3]));
+  SiteBody.replace("$m4", String(m[3]));
+  SiteBody.replace("$p1", String(p[0]));
+  SiteBody.replace("$p2", String(p[1]));
+  SiteBody.replace("$p3", String(p[2]));
+  SiteBody.replace("$p4", String(p[3]));
   SiteBody.replace("$b", String(b));
 
   server.send(200, "text/html", SiteBody);
